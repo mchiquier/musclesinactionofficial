@@ -165,9 +165,9 @@ def main(args, logger):
     total_emg_val = []
     confusionmatrix = np.zeros((20,20))
     confusionmatrixgt = np.zeros((20,20))
-    for m,trainpath in enumerate(test):
+    confusionmatrixskeleton = np.zeros((20,20))
 
-        
+    for m,trainpath in enumerate(test):
 
         args.data_path_train = trainpath
         trainpath= args.data_path_train #= trainpath
@@ -192,7 +192,6 @@ def main(args, logger):
                 predcam = data_retval['predcam']
                 proj = 5000.0
             
-                #pdb.set_trace()
                 height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
                 center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
                 focal=torch.tensor([[proj]]).repeat(height.shape[0],1)
@@ -207,46 +206,26 @@ def main(args, logger):
                 twodkpts = twodkpts.reshape(threedskeleton.shape[0],int(args.step),twodkpts.shape[1],twodkpts.shape[2])
                 divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1)
                     
-                #pdb.set_trace()
                 twodkpts = twodkpts/divide
                 
                 twodkpts = twodkpts.reshape(threedskeleton.shape[0],twodkpts.shape[1],-1)
                 emggroundtruth = data_retval['emg_values']
                 emggroundtruth = emggroundtruth/100.0
-                #pdb.set_trace()
-                #torch.unsqueeze(twodkpts.permute(0,2,1),dim=1)
-                #pdb.set_trace()
-                emg_output = my_model(twodkpts)
-                #emg_output = emg_output.permute(0,2,1)
-                #pdb.set_trace()
-                
-                #list_of_val_skeleton.append(twodkpts.reshape(-1).numpy())
 
-                #list_of_val_emg_notleft.append(emggroundtruth.reshape(-1).numpy())
+                twodkpts = torch.unsqueeze(twodkpts.permute(0,2,1),dim=1)
+
+                emg_output = my_model(twodkpts)
+
                 if ignoremovie in data_retval['frame_paths'][0][0]: 
-                    #pdb.set_trace()
                     list_of_val_emg.append(torch.sum(emggroundtruth[0],dim=1).numpy())
                     list_of_val_predemg.append(torch.sum(emg_output[0],dim=1).detach().cpu().numpy())
                     list_of_val_skeleton.append(twodkpts.reshape(-1).numpy())
                 else:
-                    #pdb.set_trace()
                     list_of_train_emg.append(torch.sum(emggroundtruth[0],dim=1).numpy())
                     list_of_train_skeleton.append(twodkpts.reshape(-1).numpy())
                     list_of_train_class.append(int(data_retval['frame_paths'][0][0].split("/")[-2].split("_")[1]))
 
 
-        """np_train_emg = np.array(list_of_train_emg)
-        np_val_emg = np.array(list_of_val_emg)
-        np_val_predemg = np.array(list_of_val_predemg)
-        np_train_class = np.array(list_of_train_class)
-        np_train_skeleton = np.array(list_of_train_skeleton)
-        np_val_skeleton = np.array(list_of_val_skeleton)
-        nn = NearestNeighbor()
-        nn.train(np_train_skeleton,np_train_class)
-        ypred = nn.predict(np_val_skeleton)
-        merged = list(itertools.chain.from_iterable(ypred.tolist()))
-        #pdb.set_trace()
-        mostcommon =  max(set(merged), key=merged.count)"""
         np_train_emg = np.array(list_of_train_emg)
         np_val_emg = np.array(list_of_val_emg)
         np_val_predemg = np.array(list_of_val_predemg)
@@ -254,56 +233,35 @@ def main(args, logger):
         np_train_skeleton = np.array(list_of_train_skeleton)
         np_val_skeleton = np.array(list_of_val_skeleton)
 
-        
-
         nn = NearestNeighbor()
-        #pdb.set_trace()
-        nn.train(np_train_emg,np_train_class)
-        ypred = nn.predict(np_val_emg)
-        #pdb.set_trace()
+        nn.train(np_train_skeleton,np_train_class)
+        ypred = nn.predict(np_val_skeleton)
         merged = list(itertools.chain.from_iterable(ypred.tolist()))
         mostcommon =  max(set(merged), key=merged.count)
-        #print(mostcommon, "emg gt", ignoremovie)
         for elem in merged:
             print(thedict[ignoremovie],thedict[str(elem)])
-            confusionmatrixgt[thedict[ignoremovie],thedict[str(elem)]] = confusionmatrix[thedict[ignoremovie],thedict[str(elem)]] + 1
-        #print(mostcommon, "skeleton", ignoremovie)
+            confusionmatrixskeleton[thedict[ignoremovie],thedict[str(elem)]] = confusionmatrixskeleton[thedict[ignoremovie],thedict[str(elem)]] + 1
 
-        ypred = nn.predict(np_val_predemg)
-        #pdb.set_trace()
+        nn = NearestNeighbor()
+        nn.train(np_train_emg,np_train_class)
+        ypred = nn.predict(np_val_emg)
         merged = list(itertools.chain.from_iterable(ypred.tolist()))
         mostcommon =  max(set(merged), key=merged.count)
-        #print(mostcommon, "emg pred", ignoremovie)
+
+        for elem in merged:
+            print(thedict[ignoremovie],thedict[str(elem)])
+            confusionmatrixgt[thedict[ignoremovie],thedict[str(elem)]] = confusionmatrixgt[thedict[ignoremovie],thedict[str(elem)]] + 1
+
+        ypred = nn.predict(np_val_predemg)
+        merged = list(itertools.chain.from_iterable(ypred.tolist()))
+        mostcommon =  max(set(merged), key=merged.count)
         for elem in merged:
             print(thedict[ignoremovie],thedict[str(elem)])
             confusionmatrix[thedict[ignoremovie],thedict[str(elem)]] = confusionmatrix[thedict[ignoremovie],thedict[str(elem)]] + 1
-        #print(mostcommon, "skeleton", ignoremovie)
 
-        #pdb.set_trace()
-    
-    #ypred = nn.predict(np_val_skeleton)
-        #msel = torch.nn.MSELoss()
-        #rint(msel(torch.tensor(np_train_emg)*100,torch.tensor(np_val_emg)*100),trainpath)
-    #np_val_emg = np.array(list_of_val_emg_notleft)
-    #np_train_emg = np.array(list_of_train_emg)[np_val_emg.shape[0],:]
-    #np_val_skeleton = np.array(list_of_val_skeleton)
-    #np_train_skeleton = np.array(list_of_train_skeleton)
-    #pdb.set_trace()
-    #nn = NearestNeighbor()
-    #nn.train(np_train_skeleton,np_train_emg)
-    pdb.set_trace()
-    np_train_emg = np.array(total_emg_train)
-    np_val_emg = np.array(total_emg_val)
-    
-    #ypred = nn.predict(np_val_skeleton)
-    msel = torch.nn.MSELoss()
-    print(msel(torch.tensor(np_train_emg)*100,torch.tensor(np_val_emg)*100))
-       
-    #list_of_resultsnn.append(msel(torch.tensor(np_pred_emg)*100,torch.tensor(np_val_emg)*100).numpy())
-    
-        
-        #print(np.mean(np.sqrt(np.sum(np.square(ypred - np_val_emg), axis=1))), trainpath)
-        #pdb.set_trace()
+    np.save("confusionmatrixskeleton.npy", confusionmatrixskeleton)
+    np.save("confusionmatrixpredemg.npy", confusionmatrix)
+
 
 #TRAIN SKELETON MATRIX FLATTENED OVER TIME 
 #TRAIN EMG MATRIX FLATTENED OVER TIME 

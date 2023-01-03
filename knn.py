@@ -25,7 +25,6 @@ def perspective_projection(points, rotation, translation,
     K[:,:-1, -1] = camera_center
 
     # Transform points
-    #pdb.set_trace()
     points = torch.einsum('bij,bkj->bki', rotation, points)
     points = points + translation.unsqueeze(1)
 
@@ -47,7 +46,7 @@ def convert_pare_to_full_img_cam(
     res = 224
     r = bbox_height / res
     tz = 2 * focal_length / (r * res * s)
-    #pdb.set_trace()
+
     cx = 2 * (bbox_center[:, 0] - (img_w / 2.)) / (s * bbox_height)
     cy = 2 * (bbox_center[:, 1] - (img_h / 2.)) / (s * bbox_height)
 
@@ -88,6 +87,9 @@ class NearestNeighbor(object):
         return Ypred
 
 def main(args, logger):
+
+    indistribution = False
+
     test= ['../../../vondrick/mia/VIBE/ignore/train_ignore_2096.txt',
     '../../../vondrick/mia/VIBE/ignore/train_ignore_2097.txt',
     '../../../vondrick/mia/VIBE/ignore/train_ignore_2098.txt',
@@ -168,36 +170,61 @@ def main(args, logger):
         list_of_val_emg_notleft = []
 
         for cur_step, data_retval in enumerate(tqdm.tqdm(train_loader)):
-            
-            if ignoremovie in data_retval['frame_paths'][0][0]: 
-                threedskeleton = data_retval['3dskeleton']
-                bboxes = data_retval['bboxes']
-                predcam = data_retval['predcam']
-                proj = 5000.0
-                
-                #pdb.set_trace()
-                height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
-                center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
-                focal=torch.tensor([[proj]]).repeat(height.shape[0],1)
-                predcamelong = predcam.reshape(predcam.shape[0]*predcam.shape[1],-1)
-                translation = convert_pare_to_full_img_cam(predcamelong,height,center,1080,1920,focal[:,0])
-                reshapethreed= threedskeleton.reshape(threedskeleton.shape[0]*threedskeleton.shape[1],threedskeleton.shape[2],threedskeleton.shape[3])
-                rotation=torch.unsqueeze(torch.eye(3),dim=0).repeat(reshapethreed.shape[0],1,1)
-                focal=torch.tensor([[proj]]).repeat(translation.shape[0],1)
-                imgdimgs=torch.unsqueeze(torch.tensor([1080.0/2, 1920.0/2]),dim=0).repeat(reshapethreed.shape[0],1)
-                twodkpts, skeleton = perspective_projection(reshapethreed, rotation, translation.float(),focal[:,0], imgdimgs)
-                twodkpts = twodkpts.reshape(threedskeleton.shape[0],int(args.step),twodkpts.shape[1],twodkpts.shape[2])
-                divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1)
-
+            if indistribution:
+                if ignoremovie in data_retval['frame_paths'][0][0]: 
+                    threedskeleton = data_retval['3dskeleton']
+                    bboxes = data_retval['bboxes']
+                    predcam = data_retval['predcam']
+                    proj = 5000.0
+                    
                     #pdb.set_trace()
-                twodkpts = twodkpts/divide
-                #twodkpts = twodkpts.reshape(threedskeleton.shape[0],twodkpts.shape[1],-1)
-                emggroundtruth = data_retval['emg_values']
-                emggroundtruth = emggroundtruth/100.0
-                list_of_train_emg.append(emggroundtruth.reshape(-1).numpy())
-                list_of_train_skeleton.append(twodkpts.reshape(-1).numpy())
-            
-        
+                    height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
+                    center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
+                    focal=torch.tensor([[proj]]).repeat(height.shape[0],1)
+                    predcamelong = predcam.reshape(predcam.shape[0]*predcam.shape[1],-1)
+                    translation = convert_pare_to_full_img_cam(predcamelong,height,center,1080,1920,focal[:,0])
+                    reshapethreed= threedskeleton.reshape(threedskeleton.shape[0]*threedskeleton.shape[1],threedskeleton.shape[2],threedskeleton.shape[3])
+                    rotation=torch.unsqueeze(torch.eye(3),dim=0).repeat(reshapethreed.shape[0],1,1)
+                    focal=torch.tensor([[proj]]).repeat(translation.shape[0],1)
+                    imgdimgs=torch.unsqueeze(torch.tensor([1080.0/2, 1920.0/2]),dim=0).repeat(reshapethreed.shape[0],1)
+                    twodkpts, skeleton = perspective_projection(reshapethreed, rotation, translation.float(),focal[:,0], imgdimgs)
+                    twodkpts = twodkpts.reshape(threedskeleton.shape[0],int(args.step),twodkpts.shape[1],twodkpts.shape[2])
+                    divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1)
+
+                    twodkpts = twodkpts/divide
+                    #twodkpts = twodkpts.reshape(threedskeleton.shape[0],twodkpts.shape[1],-1)
+                    emggroundtruth = data_retval['emg_values']
+                    emggroundtruth = emggroundtruth/100.0
+                    list_of_train_emg.append(emggroundtruth.reshape(-1).numpy())
+                    list_of_train_skeleton.append(twodkpts.reshape(-1).numpy())
+            else:
+                if ignoremovie not in data_retval['frame_paths'][0][0]: 
+                    threedskeleton = data_retval['3dskeleton']
+                    bboxes = data_retval['bboxes']
+                    predcam = data_retval['predcam']
+                    proj = 5000.0
+                    
+                    #pdb.set_trace()
+                    height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
+                    center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
+                    focal=torch.tensor([[proj]]).repeat(height.shape[0],1)
+                    predcamelong = predcam.reshape(predcam.shape[0]*predcam.shape[1],-1)
+                    translation = convert_pare_to_full_img_cam(predcamelong,height,center,1080,1920,focal[:,0])
+                    reshapethreed= threedskeleton.reshape(threedskeleton.shape[0]*threedskeleton.shape[1],threedskeleton.shape[2],threedskeleton.shape[3])
+                    rotation=torch.unsqueeze(torch.eye(3),dim=0).repeat(reshapethreed.shape[0],1,1)
+                    focal=torch.tensor([[proj]]).repeat(translation.shape[0],1)
+                    imgdimgs=torch.unsqueeze(torch.tensor([1080.0/2, 1920.0/2]),dim=0).repeat(reshapethreed.shape[0],1)
+                    twodkpts, skeleton = perspective_projection(reshapethreed, rotation, translation.float(),focal[:,0], imgdimgs)
+                    twodkpts = twodkpts.reshape(threedskeleton.shape[0],int(args.step),twodkpts.shape[1],twodkpts.shape[2])
+                    divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1)
+
+                    twodkpts = twodkpts/divide
+                    #twodkpts = twodkpts.reshape(threedskeleton.shape[0],twodkpts.shape[1],-1)
+                    emggroundtruth = data_retval['emg_values']
+                    emggroundtruth = emggroundtruth/100.0
+                    list_of_train_emg.append(emggroundtruth.reshape(-1).numpy())
+                    list_of_train_skeleton.append(twodkpts.reshape(-1).numpy())
+              
 
         for cur_step, data_retval in enumerate(tqdm.tqdm(val_aug_loader)):
 
@@ -208,7 +235,6 @@ def main(args, logger):
                     predcam = data_retval['predcam']
                     proj = 5000.0
                 
-                    #pdb.set_trace()
                     height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
                     center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
                     focal=torch.tensor([[proj]]).repeat(height.shape[0],1)
@@ -223,48 +249,29 @@ def main(args, logger):
                     twodkpts = twodkpts.reshape(threedskeleton.shape[0],int(args.step),twodkpts.shape[1],twodkpts.shape[2])
                     divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1)
                         
-                    #pdb.set_trace()
                     twodkpts = twodkpts/divide
                     
-                    #twodkpts = twodkpts.reshape(threedskeleton.shape[0],twodkpts.shape[1],-1)
                     emggroundtruth = data_retval['emg_values']
                     emggroundtruth = emggroundtruth/100.0
-                    #pdb.set_trace()
-                    #torch.unsqueeze(twodkpts.permute(0,2,1),dim=1)
-                    #pdb.set_trace()
-                    #emg_output = my_model(twodkpts)
-                    #emg_output = emg_output.permute(0,2,1)
-                    #pdb.set_trace()
                     
                     list_of_val_skeleton.append(twodkpts.reshape(-1).numpy())
-
                     list_of_val_emg_notleft.append(emggroundtruth.reshape(-1).numpy())
+
         total_emg_train.extend(list_of_train_emg[:len(list_of_val_emg_notleft)])
         total_emg_val.extend(list_of_val_emg_notleft)
-        np_train_emg = np.array(list_of_train_emg[:len(list_of_val_emg_notleft)])
-        np_val_emg = np.array(list_of_val_emg_notleft)
-        msel = torch.nn.MSELoss()
-        print(msel(torch.tensor(np_train_emg)*100,torch.tensor(np_val_emg)*100),trainpath)
-    #np_val_emg = np.array(list_of_val_emg_notleft)
-    #np_train_emg = np.array(list_of_train_emg)[np_val_emg.shape[0],:]
-    #np_val_skeleton = np.array(list_of_val_skeleton)
-    #np_train_skeleton = np.array(list_of_train_skeleton)
-    #pdb.set_trace()
-    #nn = NearestNeighbor()
-    #nn.train(np_train_skeleton,np_train_emg)
-    np_train_emg = np.array(total_emg_train)
-    np_val_emg = np.array(total_emg_val)
-    
-    #ypred = nn.predict(np_val_skeleton)
-    msel = torch.nn.MSELoss()
-    print(msel(torch.tensor(np_train_emg)*100,torch.tensor(np_val_emg)*100))
-       
-    #list_of_resultsnn.append(msel(torch.tensor(np_pred_emg)*100,torch.tensor(np_val_emg)*100).numpy())
-    
         
-        #print(np.mean(np.sqrt(np.sum(np.square(ypred - np_val_emg), axis=1))), trainpath)
-        #pdb.set_trace()
+        np_val_emg = np.array(list_of_val_emg_notleft)
+        np_train_emg = np.array(list_of_train_emg)[:np_train_skeleton.shape[0],:]
+        np_val_skeleton = np.array(list_of_val_skeleton)
+        np_train_skeleton = np.array(list_of_train_skeleton)
 
+        nn = NearestNeighbor()
+        nn.train(np_train_skeleton,np_train_emg)
+        ypred = nn.predict(np_val_skeleton)
+        msel = torch.nn.MSELoss()
+        print(torch.sqrt(msel(torch.tensor(ypred)*100,torch.tensor(np_val_emg)*100)),ignoremovie)
+    
+    
 #TRAIN SKELETON MATRIX FLATTENED OVER TIME 
 #TRAIN EMG MATRIX FLATTENED OVER TIME 
 if __name__ == '__main__':

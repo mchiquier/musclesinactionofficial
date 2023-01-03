@@ -251,7 +251,7 @@ class MyLogger(logvisgen.Logger):
             maxvaly,minvaly = torch.max(skeleton[:,:,2]),torch.min(skeleton[:,:,2])
             maxvalz,minvalz = torch.max(skeleton[:,:,1]),torch.min(skeleton[:,:,1])
             def thistakesalongtime():
-                print(i,"i")
+
                 curskeleton = skeleton[i].cpu().numpy()
                 
                 cur = time.time()
@@ -272,23 +272,16 @@ class MyLogger(logvisgen.Logger):
             #
                 #ax.view_init(-75, -90,90)
                     #ax.invert_yaxis()
-                curtwo = time.time()
-                print(curtwo-cur)
-                cur = curtwo
+
                 ax.set_xlim3d([-1.0, 2.0])
                 ax.set_zlim3d([minvalz, maxvalz])
                 ax.set_ylim3d([minvaly, maxvaly])
-                curtwo = time.time()
-                print(curtwo-cur)
-                cur = curtwo
+  
                 ax.invert_zaxis()
                 ax2.set_xlim3d([-1.5, 2.0])
                 ax2.set_zlim3d([minvalz, maxvalz])
                 ax2.set_ylim3d([minvaly, maxvaly])
                 ax2.invert_zaxis()
-                curtwo = time.time()
-                print(curtwo-cur)
-                cur = curtwo
 
                 ax.set_xlabel("x")
                 ax.set_ylabel("z")
@@ -300,9 +293,7 @@ class MyLogger(logvisgen.Logger):
                 ax2.set_ylabel("z")
                 ax2.set_zlabel("y")
                 ax2.view_init(0,-90)
-                curtwo = time.time()
-                print(curtwo-cur)
-                cur = curtwo
+
                 plt.savefig(current_path + "/3dskeleton" + str(i).zfill(6) + ".png")
 
                 if i == len(threedskeleton)-1:
@@ -314,9 +305,7 @@ class MyLogger(logvisgen.Logger):
             proc.start()
 
             # plt.savefig(current_path + "/3dskeleton" + str(i).zfill(6) + ".png")
-            curtwo = time.time()
-            print(curtwo-cur, "here")
-            cur = curtwo
+
 
         return current_path
 
@@ -379,18 +368,11 @@ class MyLogger(logvisgen.Logger):
                 blurimg = img[int(cur_skeleton[0][1]) - 100:int(cur_skeleton[0][1]) + 100, int(cur_skeleton[0][0]) - 100:int(cur_skeleton[0][0]) + 100]
                 blurred_part = cv2.blur(blurimg, ksize=(50, 50))
                 img[int(cur_skeleton[0][1]) - 100:int(cur_skeleton[0][1]) + 100, int(cur_skeleton[0][0]) - 100:int(cur_skeleton[0][0]) + 100] = blurred_part
-            #img = img[...,::-1]
-            #pdb.set_trace()
-            #if frames[i].split("/")[-2].split("_")[1][2]=='4':
-            #    back = cv2.imread('sruthibackpic.png')
-            #else:
-            #    back = cv2.imread('finalback.png')
-            #back = cv2.imread('finalback.png')
-            #back = cv2.imread('finalback3.png')
-            back = cv2.imread('sruthibackpic.png')
+      
+            back = cv2.imread('finalback.png')
+            #back = cv2.imread('sruthibackpic.png')
             back = (back*1.0).astype('int')
-            
-            #back = img
+
             
             orig_height, orig_width = img.shape[:2]
             mesh_filename = None
@@ -564,7 +546,6 @@ class MyLogger(logvisgen.Logger):
         line_ani = animation.FuncAnimation(fig, animate_func, interval=100,   
                                         frames=numDataPoints)
         print("saving_animation")
-        #FFwriter = animation.FFMpegWriter(fps=10, extra_args=['-vcodec', 'h264_v4l2m2m'])
         line_ani.save(current_path + "/" + str(part) + '_emg.mp4')
 
     def handle_val_step(self, epoch, phase, cur_step, total_step, steps_per_epoch,
@@ -580,46 +561,28 @@ class MyLogger(logvisgen.Logger):
                 for j in range(data_retval['2dskeleton'].shape[0]):
                     framelist = [data_retval['frame_paths'][i][j] for i in range(len(data_retval['frame_paths']))]
 
-                    if '2420' in data_retval['frame_paths'][0][0]:
-                        movie = framelist[0].split("/")[-2]
-                        current_path = "../../www-data/mia/muscleresults/" + self.args.name + '_' + phase + '_viz_digitized/' + movie + "/" + str(cur_step) + "/" + str(j)
-                        if not os.path.isdir(current_path):
-                            os.makedirs(current_path, 0o777)
-                        current_path = self.visualize_video(framelist,data_retval['2dskeleton'][j],cur_step,j,phase,framelist[0].split("/")[-2])
-                        threedskeleton = data_retval['3dskeleton'][j]
-                        current_path = self.visualize_skeleton(threedskeleton,data_retval['bboxes'][j],data_retval['predcam'][j],cur_step,j,phase,framelist[0].split("/")[-2])
-                        #pdb.set_trace()
-                        self.visualize_mesh_activation(data_retval['2dskeleton'][j],data_retval['verts'][j],data_retval['orig_cam'][j],framelist, data_retval['emg_values'][j],model_retval['emg_output'][j].cpu().detach(),current_path)
-                        
-                        if self.classif:
-                            values = data_retval['bined_left_quad'][0]-1
-                            bins = data_retval['bins'][0]
-                            gt_values = torch.index_select(bins.cpu(), 0, values.cpu())
-                            pred_values = model_retval['emg_bins'][0].cpu()
-                            self.animate([gt_values.numpy()],[pred_values.detach().numpy()],['left_quad'],'leftleg',2,current_path,epoch)
-                        else:
-                            gtnp = model_retval['emg_gt'].detach().cpu().numpy()
-                            prednp = model_retval['emg_output'].detach().cpu().numpy()
-                            np.save(current_path + "/gtnp" + str(cur_step) + ".npy",gtnp)
-                            np.save(current_path + "/prednp" + str(cur_step) + ".npy",prednp)
-                            rangeofmuscles=['RightQuad','RightHamstring','RightBicep','RightTricep','LeftQuad','LeftHamstring','LeftBicep','LeftTricep']
-                            """for i in range(model_retval['emg_gt'].shape[1]):
-                                gt_values = model_retval['emg_gt'][j,i,:].cpu()*100
-                                #gt_values[gt_values>100.0] = 100.0
-                                pred_values = model_retval['emg_output'][j][i].cpu()*100.0
-                                #pdb.set_trace()
-                                self.animate([gt_values.numpy()],[pred_values.detach().numpy()],[rangeofmuscles[i]],rangeofmuscles[i],2,current_path,epoch)"""
-                            ###DEBUG
-                            for i in range(model_retval['emg_gt'].shape[1]):
-                                gt_values = model_retval['emg_gt'][j,i,:].cpu()*100
-                                #gt_values[gt_values>100.0] = 100.0
-                                #if i == 1:
-                                #    pred_values = model_retval['emg_output'][j][4].cpu()*100.0
-                                #else:
-                                pred_values = model_retval['emg_output'][j][i].cpu()*100.0
-                                #pdb.set_trace()
-                                self.animate([gt_values.numpy()],[pred_values.detach().numpy()],[rangeofmuscles[i]],rangeofmuscles[i],2,current_path,epoch)
-                
+                    movie = framelist[0].split("/")[-2]
+                    current_path = "../../www-data/mia/muscleresults/" + self.args.name + '_' + phase + '_viz_digitized/' + movie + "/" + str(cur_step) + "/" + str(j)
+                    if not os.path.isdir(current_path):
+                        os.makedirs(current_path, 0o777)
+                    current_path = self.visualize_video(framelist,data_retval['2dskeleton'][j],cur_step,j,phase,framelist[0].split("/")[-2])
+                    threedskeleton = data_retval['3dskeleton'][j]
+                    current_path = self.visualize_skeleton(threedskeleton,data_retval['bboxes'][j],data_retval['predcam'][j],cur_step,j,phase,framelist[0].split("/")[-2])
+                    self.visualize_mesh_activation(data_retval['2dskeleton'][j],data_retval['verts'][j],data_retval['orig_cam'][j],framelist, data_retval['emg_values'][j],model_retval['emg_output'][j].cpu().detach(),current_path)
+
+                 
+                    gtnp = model_retval['emg_gt'].detach().cpu().numpy()
+                    prednp = model_retval['emg_output'].detach().cpu().numpy()
+                    np.save(current_path + "/gtnp" + str(cur_step) + ".npy",gtnp)
+                    np.save(current_path + "/prednp" + str(cur_step) + ".npy",prednp)
+                    rangeofmuscles=['RightQuad','RightHamstring','RightBicep','RightTricep','LeftQuad','LeftHamstring','LeftBicep','LeftTricep']
+
+                    ###DEBUG
+                    for i in range(model_retval['emg_gt'].shape[1]):
+                        gt_values = model_retval['emg_gt'][j,i,:].cpu()*100
+                        pred_values = model_retval['emg_output'][j][i].cpu()*100.0
+                        self.animate([gt_values.numpy()],[pred_values.detach().numpy()],[rangeofmuscles[i]],rangeofmuscles[i],2,current_path,epoch)
+        
 
                     # Print metrics in console.
                     """command = ['ffmpeg', '-i', f'{current_path}/out.mp4', '-i',f'{current_path}/out3dskeleton.mp4',  '-i', f'{current_path}/epoch_206_leftbicep_emg.mp4',

@@ -103,17 +103,11 @@ class TransformerEnc(nn.Module):
 
         src = src.float()* math.sqrt(self.dim_model) 
 
-        src = torch.unsqueeze(src,dim=1).permute(0,1,3,2)
-        #pdb.set_trace()
+        #src = torch.unsqueeze(src,dim=1).permute(0,1,3,2)
         src = self.conv1(src)[:,:,0,:].permute(0,2,1)
-        
-        #newcond = torch.unsqueeze(cond,dim=1).repeat(1,30,2).type(torch.cuda.FloatTensor)
         src = self.positional_encoder(src)
-        #newsrc = torch.cat([src,newcond],dim=2)
         
-        # We could use the parameter batch_first=True, but our KDL version doesn't support it yet, so we permute
-        # to obtain size (sequence length, batch_size, dim_model),
-        src = src.permute(1,0,2) #newsrc.permute(1,0,2)#
+        src = src.permute(1,0,2) 
 
         # Transformer blocks - Out size = (sequence length, batch_size, num_tokens)
         transformer_out = self.transformer0(src,src_key_padding_mask=src_pad_mask)

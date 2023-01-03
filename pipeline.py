@@ -111,7 +111,6 @@ class MyTrainPipeline(torch.nn.Module):
         predcam = data_retval['predcam']
         proj = 5000.0
         
-        #pdb.set_trace()
         height= bboxes[:,:,2:3].reshape(bboxes.shape[0]*bboxes.shape[1])
         center = bboxes[:,:,:2].reshape(bboxes.shape[0]*bboxes.shape[1],-1)
         focal=torch.tensor([[proj]]).to(self.device).repeat(height.shape[0],1)
@@ -122,14 +121,10 @@ class MyTrainPipeline(torch.nn.Module):
         focal=torch.tensor([[proj]]).to(self.device).repeat(translation.shape[0],1)
         imgdimgs=torch.unsqueeze(torch.tensor([1080.0/2, 1920.0/2]),dim=0).repeat(reshapethreed.shape[0],1).to(self.device)
         twodkpts, skeleton = self.perspective_projection(reshapethreed, rotation, translation.float(),focal[:,0], imgdimgs)
-        #skeleton = skeleton.reshape(twodskeleton.shape[0],30,skeleton.shape[1],skeleton.shape[2])
-        #skeleton = skeleton.reshape(skeleton.shape[0],skeleton.shape[1],-1)
+        #pdb.set_trace()
         twodkpts = twodkpts.reshape(twodskeleton.shape[0],(self.train_args.step),twodkpts.shape[1],twodkpts.shape[2])
         divide = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.tensor([1080.0,1920.0]),dim=0),dim=0),dim=0).repeat(twodkpts.shape[0],twodkpts.shape[1],twodkpts.shape[2],1).to(self.device)
         twodkpts = twodkpts/divide
-        #pdb.set_trace()
-        #
-        #if self.train_args.modelname != 'transf':
         twodkpts = twodkpts.reshape(twodskeleton.shape[0],twodkpts.shape[1],-1)
     
         bined_left_quad = data_retval['bined_left_quad']-1
@@ -140,50 +135,28 @@ class MyTrainPipeline(torch.nn.Module):
         leftquad = data_retval['left_quad'].to(self.device)
         leftquad = leftquad/100.0
         leftquad[leftquad > 1.0] = 1.0
-        bins = data_retval['bins']
-        #bined_left_quad = bined_left_quad.to(self.device)-1
         twodskeleton = twodskeleton.to(self.device)
-        cur2 = time.time()
-        #print(cur2-cur,"2")
-        cur = cur2
-        if self.train_args.modelname == 'transf':
-            emg_output = self.my_model(twodkpts) #, cond
-        else:
-            emg_output = self.my_model(torch.unsqueeze(twodkpts.permute(0,2,1),dim=1))
-        cur2 = time.time()
-        #print(cur2-cur,"3")
-        cur = cur2
-        model_retval = dict()
-        
-        meangt = torch.unsqueeze(torch.mean(emggroundtruth,dim=2),dim=2).repeat(1,1,10)
+        twodkpts = torch.unsqueeze(twodkpts.permute(0,2,1),dim=1)
 
-        if self.train_args.modelname != 'transf':
-            loss = self.mse(emg_output[:,:,0,:], (emggroundtruth[:,:,:]).type(torch.cuda.FloatTensor))
-            #print(leftquad[:,:])
-            model_retval['emg_output'] = emg_output[:,:,0,:]
-        else:
-            mask = torch.ones(emg_output.shape).type(torch.cuda.FloatTensor)
-            for i in range(emg_output.shape[0]):                
-                if '2423' in data_retval['frame_paths'][0][i]:
-                    mask[i,4,:] = 1.0
-            total_loss = self.mse(emg_output*mask, (emggroundtruth*mask).type(torch.cuda.FloatTensor))
-            model_retval['emg_output'] = emg_output[:,:,:]
-        """else:
-            loss = self.crossent(emg_output, bined_left_quad.type(torch.cuda.LongTensor))
+        emg_output = self.my_model(twodkpts) 
+
         
-            list_of_values = []
-            _, ix = torch.topk(emg_output, k=1, dim=1)
-            values = torch.index_select(bins[0], 0, ix[0,0,:])
-            model_retval['emg_bins'] = torch.unsqueeze(values,dim=0)"""
+
+        
+        mask = torch.ones(emg_output.shape).type(torch.cuda.FloatTensor)
+        for i in range(emg_output.shape[0]):                
+            if '2423' in data_retval['frame_paths'][0][i]:
+                mask[i,4,:] = 1.0
+        total_loss = self.mse(emg_output*mask, (emggroundtruth*mask).type(torch.cuda.FloatTensor))
+
+        model_retval = dict()
+        model_retval['emg_output'] = emg_output[:,:,:]
 
         model_retval['emg_gt'] = emggroundtruth
         
         loss_retval = dict()
         loss_retval['cross_ent'] = total_loss 
-        cur2 = time.time()
-        #print(cur2-cur,"4")
-        cur = cur2
-        #loss_retval = self.losses.per_example(data_retval, model_retval)
+
 
         return (model_retval, loss_retval)
 

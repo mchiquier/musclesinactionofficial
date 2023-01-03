@@ -64,13 +64,8 @@ def _train_one_epoch(args, train_pipeline, phase, epoch, optimizer,
         total_step = cur_step + total_step_base  # For continuity in wandb.
 
         try:
-            # First, address every example independently.
-            # This part has zero interaction between any pair of GPUs.
+
             (model_retval, loss_retval) = train_pipeline[0](data_retval, cur_step, total_step)
-            # Second, process accumulated information, for example contrastive loss functionality.
-            # This part typically happens on the first GPU, so it should be kept minimal in memory.
-            #ignoremovie = args.data_path_train
-            #ignoremovie = ignoremovie.split("/")[-1].split(".txt")[0].split("_")[2]
             ignoremovie = None
             loss_retval = train_pipeline[1].process_entire_batch(
                 data_retval, model_retval, loss_retval, ignoremovie, cur_step, total_step)
@@ -96,15 +91,6 @@ def _train_one_epoch(args, train_pipeline, phase, epoch, optimizer,
 
             optimizer.step()
 
-        # Print and visualize stuff.
-        """if phase == 'eval':
-            logger.handle_train_step(epoch, phase, cur_step, total_step, steps_per_epoch,
-                           data_retval, model_retval, loss_retval)"""
-        """if phase=='val':
-            #pdb.set_trace()
-            logger.handle_val_step(epoch, phase, cur_step, total_step, steps_per_epoch,
-                        data_retval, model_retval, loss_retval)"""
-        #print("here")
         # DEBUG:
         if cur_step >= 256 and 'dbg' in args.name:
             logger.warning('Cutting epoch short for debugging...')
@@ -135,27 +121,8 @@ def _train_all_epochs(args, train_pipeline, optimizer, lr_scheduler, start_epoch
         if epoch%1==0 and args.name != 'dbg':
             checkpoint_fn(epoch)
 
-        # Validation with data augmentation. 
-
-        """_train_one_epoch(
-            args, train_pipeline, 'val', epoch, optimizer,
-            lr_scheduler, train_loader, val_aug_loader, device, logger)"""
-
-        #pdb.set_trace()
         returnval = logger.epoch_finished(epoch)
 
-        """Early stopping
-        returnval = logger.epoch_finished(epoch)
-        if len(list_of_val_vals) < 10:
-            list_of_val_vals.append(returnval)
-        else:
-            if list_of_val_vals[0] > list_of_val_vals[-1]:
-                list_of_val_vals.pop(0) 
-                list_of_val_vals.append(returnval)
-            else:
-                break"""
-
-        # TODO: Optionally, keep track of best weights.
 
     total_time = time.time() - start_time
     logger.info(f'Total time: {total_time / 3600.0:.3f} hours')
@@ -191,7 +158,6 @@ def main(args, logger):
 
     # Instantiate networks.
    
-
     if args.modelname == 'transf':
         model_args = {'num_tokens': int(args.num_tokens),
         'dim_model': int(args.dim_model),
@@ -205,10 +171,6 @@ def main(args, logger):
         'embedding': args.embedding,
         'step': int(args.step)}
         model = transmodel.TransformerEnc(**model_args)
-    elif args.modelname == 'old':
-        model_args = {
-        'device': args.device}
-        model = convmodel.OldBasicConv(**model_args)
     else:
         model_args = {
         'device': args.device}

@@ -116,4 +116,4 @@ class OldBasicConv(nn.Module):
         x = self.conv5(x)
         x = self.relu5(x)
 
-        return x
+        return x[:,:,0,:]
